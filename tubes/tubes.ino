@@ -2,6 +2,25 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "Tayowawik";
+const char* password = "Wawiktayo";
+
+// inisialisasi Bot Token
+#define BOTtoken "6236249395:AAFYKmTJUcZmcOVPUIQdsSQf5O2mtv5yqVg"  // Bot Token dari BotFather
+
+// chat id dari @myidbot
+#define CHAT_ID "1365262211"
+
+WiFiClientSecure client;
+UniversalTelegramBot bot(BOTtoken, client);
+
+int botRequestDelay = 1000;
+unsigned long lastTimeBotRan;
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
@@ -32,7 +51,6 @@ int pompavalue = 0;
 String pesanAda = "sedang ada orang";
 String pesanTidakAda = "tidak ada orang";
 
-
 void setup(){
     myservo.attach(servo1Pin);
 
@@ -55,7 +73,21 @@ void setup(){
     pinMode(pirPin, INPUT);
 
     Serial.begin(9600);
+
+    // Koneksi Ke Wifi
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    #ifdef ESP32
+        client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+    #endif
+    while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi..");
+  }
+  // Print ESP32 Local IP Address
+  Serial.println(WiFi.localIP());
 }
+
 int btnValue(int input, String text){
     if (text == "lampu"){
         if(input == 1){
@@ -78,7 +110,58 @@ int btnValue(int input, String text){
     }   
 }
 
-               
+ void handleNewMessages(int numNewMessages) {
+    Serial.println("handleNewMessages");
+    Serial.println(String(numNewMessages));
+
+    for (int i=0; i<numNewMessages; i++) {
+        String chat_id = String(bot.messages[i].chat_id);
+        if (chat_id != CHAT_ID){
+            bot.sendMessage(chat_id, "Unauthorized user", "");
+            continue;
+        }
+
+        String text = bot.messages[i].text;
+        Serial.println(text);
+        String from_name = bot.messages[i].from_name;
+
+        if (text == "/start") {
+            String control = "Selamat Datang, " + from_name + ".\n";
+            control += "Gunakan Commands Di Bawah Untuk Control Lednya.\n\n";
+            control += "/cek_status Untuk mengecek ada orang atau tidak\n";
+            control += "/isi_air untuk mengisi air ke bak mandi\n";
+            control += "/cek_air Untuk memberhentikan proses pengisian \n";
+            control += "/lampu_Mati Untuk Matikan lampu \n";
+            control += "/lampu_Nyala Untuk Menyalakan lampu \n";
+            bot.sendMessage(chat_id, control, "");
+        }
+
+        if (text == "/cek_status") {
+            bot.sendMessage(chat_id, "status kamar mandi\n", "");
+            
+        }
+        
+        if (text == "/cek_air") {
+            bot.sendMessage(chat_id, "kapasitas air", "");
+            
+        }
+        if (text == "/isi_air") {
+            bot.sendMessage(chat_id, "isi air", "");
+            
+        }
+        if (text == "/lampu_Mati") {
+            bot.sendMessage(chat_id, "mati lampu ", "");
+            
+        }
+        if (text == "/lampu_Nyala") {
+            bot.sendMessage(chat_id, "hidup lampu", "");
+            
+        }
+
+
+    }
+}
+              
 
 float range(){
     //jarak in cm
@@ -116,6 +199,17 @@ void loop(){
     pompavalue = btnValue(digitalRead(btn2), "pompa");
 
     pompa(jarak);
+
+    if (millis() > lastTimeBotRan + botRequestDelay)  {
+    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+
+    while(numNewMessages) {
+      Serial.println("got response");
+      handleNewMessages(numNewMessages);
+      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+    }
+    lastTimeBotRan = millis();
+  }
 
 
     if (digitalRead(pirPin)) {
