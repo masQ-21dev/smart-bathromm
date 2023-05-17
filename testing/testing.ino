@@ -41,7 +41,7 @@ const int ldrPin = 35;
 const int pirPin = 34;
 
 // dalam bak mandi in cm 
-int bakMandi = 10;
+int bakMandi = 17;
 
 int lampValue = 0;
 int pompavalue = 0;
@@ -164,9 +164,9 @@ float range(){
 }
 
 void pompa(float range) {
-    if((jarak/bakMandi)* 100 < 50.00) {
+    if((jarak/(bakMandi-2))* 100 > 50.00) {
         onPompa();
-    } if ((jarak/bakMandi)* 100 >= 85.00) {
+    } if ((jarak/(bakMandi-2))* 100 <= 15.00) {
         Btnpompavalue = 0;
         offPompa();
     }
@@ -191,7 +191,7 @@ void pompa(float range) {
             String control = "Selamat Datang, " + from_name + ".\n";
             control += "Gunakan Commands Di Bawah Untuk Control Lednya.\n\n";
             control += "/cek_status Untuk mengecek ada orang atau tidak\n";
-            control += "/cek_air Untuk memberhentikan proses pengisian \n";
+            control += "/cek_air Untuk mengecek kapasitas air yang ada di bak mandi \n";
             control += "/isi_air untuk mengisi air ke bak mandi\n";
             control += "/lampu_Nyala Untuk Menyalakan lampu \n";
             control += "/lampu_Mati Untuk Matikan lampu \n";
@@ -210,7 +210,7 @@ void pompa(float range) {
         
         if (text == "/cek_air") {
             bot.sendMessage(chat_id, "kapasitas air", "");
-            bot.sendMessage(chat_id, String((rangevalue/bakMandi)*100) + " % ", "");
+            bot.sendMessage(chat_id, String((((rangevalue/bakMandi)*100)-100)*-1) + " % ", "");
         }
         if (text == "/isi_air") {
             if(pompavalue == 0) {
@@ -277,7 +277,7 @@ void loop(){
         lampu(analogRead(ldrPin));
         Serial.println(analogRead(ldrPin));
     } else {
-        delay(2000);
+        // delay(2000);
         pirStatus = 0;
         lcd.setCursor(0,0);
         lcd.print(pesanTidakAda);
