@@ -1,14 +1,13 @@
-#include <ESP32Servo.h>
-#include <Wire.h> 
-#include <LiquidCrystal_I2C.h>
-
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
 #include <ArduinoJson.h>
+#include <ESP32Servo.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
 
-const char* ssid = "Tayowawik";
-const char* password = "Wawiktayo";
+const char* ssid = "MASQOMAR_21 0365";
+const char* password = "budakcindo";
 
 // inisialisasi Bot Token
 #define BOTtoken "6236249395:AAFYKmTJUcZmcOVPUIQdsSQf5O2mtv5yqVg"  // Bot Token dari BotFather
@@ -26,23 +25,23 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 Servo myservo;
 
-const int btn1 = 2;
-const int btn2 = 4;
+const int btn1 = 15;
+const int btn2 = 23;
 
-const int servo1Pin = 15;
+const int servo1Pin = 2;
 
-const int relay1 = 25;
-const int relay2 = 26;
+const int relay1 = 18;
+const int relay2 = 19;
 
 const int TrigPin = 13;
 const int echoPin = 12;
 
-const int ldrPin = 14;
+const int ldrPin = 35;
 
-const int pirPin = 27;
+const int pirPin = 34;
 
 // dalam bak mandi in cm 
-int bakMandi = 12;
+int bakMandi = 10;
 
 int lampValue = 0;
 int pompavalue = 0;
@@ -90,11 +89,10 @@ void setup(){
     while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.println("Connecting to WiFi..");
-  }
-  // Print ESP32 Local IP Address
-  Serial.println(WiFi.localIP());
+    }
+    // Print ESP32 Local IP Address
+    Serial.println(WiFi.localIP());
 }
-
 void onLamp(){
     digitalWrite(relay2, HIGH);
     lampValue = 1;
@@ -114,30 +112,67 @@ void offPompa(){
     pompavalue = 0;
 }
 
+void lampu( int sensor){
+    // Serial.println(sensor);
+    if(sensor > 3000){
+        if(lampValue == 0){
+            onLamp();
+        }
+    } else {
+            offLamp();
+    }
+    
+}
 
 int btnValue(int input, String text){
     if (text == "lampu"){
-        if(input == 1){
+        if(input){
             BtnlampValue++;
             if(BtnlampValue > 1) {
                 BtnlampValue = 0;
             }
             delay(250);
         }
-        return lampValue;
+        return BtnlampValue;
     }else{
-        if(input == 1){
+        if(input){
             Btnpompavalue++;
             if(Btnpompavalue > 1) {
                 Btnpompavalue = 0;
             }
             delay(250);
         }
-        return pompavalue;
+        return Btnpompavalue;
     }   
 }
 
- void handleNewMessages(int numNewMessages) {
+float range(){
+    //jarak in cm
+    digitalWrite(TrigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TrigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TrigPin, LOW);
+  
+    long duration = pulseIn(echoPin, HIGH);
+    float rangepoin = duration * 0.034 / 2; 
+
+    // Serial.print("jarak fungsi : ");
+    // Serial.println(rangepoin);
+
+    return rangepoin;
+}
+
+void pompa(float range) {
+    if((jarak/bakMandi)* 100 < 50.00) {
+        onPompa();
+    } if ((jarak/bakMandi)* 100 >= 85.00) {
+        Btnpompavalue = 0;
+        offPompa();
+    }
+}
+
+ void handleNewMessages(int numNewMessages, float rangevalue) {
     Serial.println("handleNewMessages");
     Serial.println(String(numNewMessages));
 
@@ -156,10 +191,10 @@ int btnValue(int input, String text){
             String control = "Selamat Datang, " + from_name + ".\n";
             control += "Gunakan Commands Di Bawah Untuk Control Lednya.\n\n";
             control += "/cek_status Untuk mengecek ada orang atau tidak\n";
-            control += "/isi_air untuk mengisi air ke bak mandi\n";
             control += "/cek_air Untuk memberhentikan proses pengisian \n";
-            control += "/lampu_Mati Untuk Matikan lampu \n";
+            control += "/isi_air untuk mengisi air ke bak mandi\n";
             control += "/lampu_Nyala Untuk Menyalakan lampu \n";
+            control += "/lampu_Mati Untuk Matikan lampu \n";
             bot.sendMessage(chat_id, control, "");
         }
 
@@ -175,28 +210,34 @@ int btnValue(int input, String text){
         
         if (text == "/cek_air") {
             bot.sendMessage(chat_id, "kapasitas air", "");
-            bot.sendMessage(chat_id, String((jarak/bakMandi)* 100), "");
+            bot.sendMessage(chat_id, String((rangevalue/bakMandi)*100) + " % ", "");
         }
         if (text == "/isi_air") {
             if(pompavalue == 0) {
                 onPompa();
                 bot.sendMessage(chat_id, "isi air", "");
+                Serial.println("isi air");
+            } else {
+                bot.sendMessage(chat_id, "air sedang di isi", "");
             }
             
         }
         if (text == "/lampu_Mati") {
-            if (lampValue != 1 ){
+            if (lampValue == 1 ){
                 offLamp();
                 bot.sendMessage(chat_id, "lampu di matikan", "");
+                // Serial.println("lampu mati");
             } else {
                 bot.sendMessage(chat_id, "lampu sudah matikan", "");
             }
             
         }
         if (text == "/lampu_Nyala") {
-            if (lampValue == 1 ){
-                offLamp();
+
+            if (lampValue == 0 ){
+                onLamp();
                 bot.sendMessage(chat_id, "lampu di dihidupkan", "");
+            //     Serial.println("lampu hidup");
             }
             else {
                 bot.sendMessage(chat_id, "lampu sudah hidup", "");
@@ -204,84 +245,59 @@ int btnValue(int input, String text){
         }
     }
 }
-              
-
-float range(){
-    //jarak in cm
-    long durasi = pulseIn(TrigPin, HIGH);
-    float jarak = durasi * 0.034/2;
-
-    return jarak;
-}
-
-void lampu(){
-    if(analogRead(ldrPin)  3000){
-        if(lampValue != 1) {
-            onLamp();
-        }
-    } 
-}
-
-void pompa(int range) {
-    if(range < bakMandi/5) {
-        onPompa();
-        Serial.print("pompa menyala");
-    } if (range >= bakMandi/9) {
-        offPompa();
-        Serial.print("pompa mati");
-    }
-}
 
 void loop(){
-    //jarak in cm
     jarak = range();
 
-    BtnlampValue = btnValue(digitalRead(btn1), "lampu");
-    if(BtnlampValue == 1 && lampValue != 1){
-        onLamp();
-    }else if(BtnlampValue != 1 && lampValue == 1){
-        onLamp();
-    }
-    Btnpompavalue = btnValue(digitalRead(btn2), "pompa");
-    if(Btnpompavalue == 1 && pompavalue != 1){
-        onPompa();
-    }else if(Btnpompavalue != 1 && pompavalue == 1){
-        onPompa();
-    }
-
+    // Serial.println((jarak/bakMandi)* 100);
     pompa(jarak);
 
-    if (millis() > lastTimeBotRan + botRequestDelay)  {
-    int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-
-    while(numNewMessages) {
-      Serial.println("got response");
-      handleNewMessages(numNewMessages);
-      numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-    }
-    lastTimeBotRan = millis();
+    BtnlampValue = btnValue(digitalRead(btn1), "lampu");
+    if(BtnlampValue == 1){
+        if(lampValue == 0) {
+            onLamp();
+        }
     }
 
+    Btnpompavalue = btnValue(digitalRead(btn2), "pompa");
 
+    // Serial.println(Btnpompavalue);
+    if(Btnpompavalue == 1 ){
+        if(pompavalue == 0){
+            onPompa();
+        }
+    }
+    
     if (digitalRead(pirPin)) {
         pirStatus = 1;
         lcd.setCursor(0,0);
         lcd.print(pesanAda);
         myservo.write(90);
 
-        lampu();
+        lampu(analogRead(ldrPin));
+        Serial.println(analogRead(ldrPin));
     } else {
+        delay(2000);
         pirStatus = 0;
         lcd.setCursor(0,0);
         lcd.print(pesanTidakAda);
         myservo.write(0);
         if(lampValue == 1){
+            BtnlampValue = 0;
             offLamp();
         }
     }
+
+    
+    if (millis() > lastTimeBotRan + botRequestDelay)  {
+        int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+        Serial.println(numNewMessages);
+
+        while(numNewMessages) {
+            Serial.println("got response");
+            handleNewMessages(numNewMessages, jarak);
+            numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+        }
+        lastTimeBotRan = millis();
+    }
 }
-
-
-
-
-
